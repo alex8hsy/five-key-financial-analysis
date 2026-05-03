@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>五大關鍵數字力 — 財務分析儀表板</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: #0f172a; color: #e2e8f0; min-height: 100vh;
+    }
+    .container { max-width: 1280px; margin: 0 auto; padding: 20px; }
+    
+    /* Header */
+    .header { text-align: center; padding: 30px 0 20px; }
+    .header h1 { font-size: 2rem; color: #f8fafc; }
+    .header h1 span { background: linear-gradient(135deg, #3b82f6, #10b981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header p { color: #94a3b8; margin-top: 8px; font-size: 0.95rem; }
+    
+    /* Disclaimer Banner */
+    .disclaimer-banner {
+      background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3);
+      border-radius: 12px; padding: 12px 20px; margin: 12px auto; max-width: 800px;
+      text-align: center; font-size: 0.85rem; color: #fbbf24; line-height: 1.6;
+    }
+    
+    /* Search */
+    .search-box {
+      display: flex; gap: 12px; max-width: 640px; margin: 20px auto;
+      background: #1e293b; border-radius: 16px; padding: 8px; border: 2px solid #334155;
+      transition: border-color 0.3s;
+    }
+    .search-box:focus-within { border-color: #3b82f6; }
+    .search-box input {
+      flex: 1; background: transparent; border: none; color: #f8fafc;
+      font-size: 1.1rem; padding: 12px 16px; outline: none;
+    }
+    .search-box input::placeholder { color: #64748b; }
+    .search-box button {
+      background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff;
+      border: none; border-radius: 12px; padding: 12px 28px;
+      font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.3s;
+      white-space: nowrap;
+    }
+    .search-box button:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(59,130,246,0.4); }
+    .search-box button:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .examples { text-align: center; margin-bottom: 10px; color: #64748b; font-size: 0.85rem; }
+    .examples span { 
+      display: inline-block; background: #1e293b; padding: 4px 12px; border-radius: 20px;
+      margin: 4px; cursor: pointer; border: 1px solid #334155; transition: 0.3s;
+      font-family: monospace;
+    }
+    .examples span:hover { border-color: #3b82f6; color: #3b82f6; }
+    
+    /* Loading */
+    .loading { display: none; text-align: center; padding: 40px; }
+    .loading.show { display: block; }
+    .spinner {
+      width: 48px; height: 48px; border: 4px solid #334155; border-top-color: #3b82f6;
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* Error */
+    .error { display: none; background: #7f1d1d; border: 1px solid #ef4444; 
+             border-radius: 12px; padding: 16px 20px; margin: 16px auto; max-width: 640px; }
+    .error.show { display: block; }
+    
+    /* Results */
+    .results { display: none; }
+    .results.show { display: block; }
+    
+    /* Company Header */
+    .company-header {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid #334155; border-radius: 20px; padding: 28px;
+      margin-bottom: 24px; display: flex; align-items: center;
+      justify-content: space-between; flex-wrap: wrap; gap: 20px;
+    }
+    .company-info h2 { font-size: 1.6rem; color: #f8fafc; }
+    .company-info .meta { color: #94a3b8; font-size: 0.9rem; margin-top: 4px; }
+    
+    .total-score {
+      text-align: center; min-width: 140px;
+    }
+    .total-score .big-grade {
+      font-size: 4rem; font-weight: 900; line-height: 1;
+    }
+    .total-score .advice { font-size: 0.85rem; color: #94a3b8; margin-top: 4px; }
+    .total-score .score-number { font-size: 1.2rem; margin-top: 4px; }
+    
+    /* Dashboard Grid */
+    .dashboard {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 24px; margin-bottom: 24px;
+    }
+    @media (max-width: 900px) { .dashboard { grid-template-columns: 1fr; } }
+    
+    /* Radar Card */
+    .card {
+      background: #1e293b; border: 1px solid #334155; border-radius: 20px;
+      padding: 24px; position: relative; overflow: hidden;
+    }
+    .card-title { 
+      font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .card-title .dot { width: 10px; height: 10px; border-radius: 50%; }
+    
+    /* Dimension Cards */
+    .dimensions-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px; margin-bottom: 24px;
+    }
+    
+    .dim-card {
+      background: #1e293b; border: 1px solid #334155; border-radius: 20px;
+      padding: 24px; transition: 0.3s;
+    }
+    .dim-card:hover { border-color: #475569; }
+    
+    .dim-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+    }
+    .dim-header .dim-name { font-size: 1.35rem; font-weight: 700; }
+    .dim-header .dim-cn { font-size: 0.85rem; color: #94a3b8; margin-top: 2px; }
+    .dim-grade {
+      width: 56px; height: 56px; border-radius: 50%; display: flex;
+      align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 900;
+      color: #fff; flex-shrink: 0;
+    }
+    
+    .dim-body { margin-bottom: 12px; }
+    .metric-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid #1e293b;
+    }
+    .metric-row:last-child { border-bottom: none; }
+    .metric-label { color: #cbd5e1; font-size: 0.9rem; }
+    .metric-value { font-weight: 700; font-size: 0.95rem; font-family: monospace; }
+    .metric-threshold { font-size: 0.75rem; color: #64748b; margin-left: 6px; }
+    .metric-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 0.7rem; font-weight: 600;
+    }
+    .metric-badge.pass { background: rgba(16,185,129,0.2); color: #10b981; }
+    .metric-badge.fail { background: rgba(148,163,184,0.2); color: #94a3b8; }
+    
+    .dim-insight {
+      background: rgba(59,130,246,0.08); border-radius: 12px;
+      padding: 14px; font-size: 0.88rem; color: #94a3b8; line-height: 1.6; margin-top: 12px;
+    }
+    
+    .dim-score-bar {
+      height: 6px; background: #334155; border-radius: 3px; margin-top: 8px; overflow: hidden;
+    }
+    .dim-score-bar .fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+    
+    /* Spark bars */
+    .spark-section {
+      background: #1e293b; border: 1px solid #334155; border-radius: 20px;
+      padding: 24px; margin-bottom: 24px;
+    }
+    .bar-chart { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+    .bar-row { display: flex; align-items: center; gap: 12px; }
+    .bar-label { width: 160px; font-size: 0.85rem; color: #cbd5e1; text-align: right; flex-shrink: 0; }
+    .bar-track { flex: 1; height: 24px; background: #334155; border-radius: 6px; overflow: hidden; position: relative; }
+    .bar-fill { height: 100%; border-radius: 6px; transition: width 1.5s ease; position: relative; }
+    .bar-fill .bar-value { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.75rem; font-weight: 700; color: #fff; }
+    
+    /* Footer */
+    .footer { text-align: center; padding: 30px; color: #475569; font-size: 0.85rem; }
+    
+    /* Animations */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.5s ease forwards; }
+    .fade-in-d1 { animation-delay: 0.1s; opacity: 0; }
+    .fade-in-d2 { animation-delay: 0.2s; opacity: 0; }
+    .fade-in-d3 { animation-delay: 0.3s; opacity: 0; }
+    .fade-in-d4 { animation-delay: 0.4s; opacity: 0; }
+    .fade-in-d5 { animation-delay: 0.5s; opacity: 0; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <h1>📊 五大關鍵<span>數字力</span>分析儀表板</h1>
+    <p>基於林明樟（MJ老師）財報分析理論 — 支援美股、港股、中國A股、台股，系統化財務分析</p>
+  </div>
+
+  <!-- Disclaimer Banner -->
+  <div class="disclaimer-banner">
+    ⚠️ 免責聲明：本工具僅提供財務數據的客觀呈現與分析參考，不構成任何投資建議或投資推薦。投資決策請自行判斷並承擔風險。
+  </div>
+
+  <!-- Search -->
+  <div class="search-box" id="searchBox">
+    <input type="text" id="tickerInput" placeholder="輸入代碼：美股 AAPL / 港股 00700 或 0700.HK / A股 600519 / 台股 2330..." autocomplete="off">
+    <button id="analyzeBtn" onclick="analyze()">🔍 開始分析</button>
+  </div>
+  <div class="examples">
+    <span style="color:#64748b; margin-right:4px;">🇺🇸</span>
+    <span onclick="quickSearch('AAPL')">AAPL</span>
+    <span onclick="quickSearch('NVDA')">NVDA</span>
+    <span onclick="quickSearch('MSFT')">MSFT</span>
+    <span onclick="quickSearch('TSLA')">TSLA</span>
+    <span onclick="quickSearch('GOOGL')">GOOGL</span>
+    <span onclick="quickSearch('BRKA')">BRKA</span>
+    <br style="display:none">
+    <span style="color:#64748b; margin-right:4px;">🇭🇰</span>
+    <span onclick="quickSearch('0700.HK')">0700.HK</span>
+    <span onclick="quickSearch('9988.HK')">9988.HK</span>
+    <span onclick="quickSearch('3690.HK')">3690.HK</span>
+    <span onclick="quickSearch('1299.HK')">1299.HK</span>
+    <br>
+    <span style="color:#64748b; margin-right:4px;">🇨🇳</span>
+    <span onclick="quickSearch('600519.SS')">600519.SS</span>
+    <span onclick="quickSearch('000858.SZ')">000858.SZ</span>
+    <span onclick="quickSearch('601398.SS')">601398.SS</span>
+    <span onclick="quickSearch('601318.SS')">601318.SS</span>
+    <span style="color:#64748b; margin-right:4px;">🇹🇼</span>
+    <span onclick="quickSearch('2330.TW')">2330.TW</span>
+    <span onclick="quickSearch('2454.TW')">2454.TW</span>
+    <span onclick="quickSearch('2317.TW')">2317.TW</span>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>正在從公開市場抓取財報數據並進行五大數字力分析...</p>
+  </div>
+
+  <!-- Error -->
+  <div class="error" id="error"></div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+
+    <!-- Company Header -->
+    <div class="company-header fade-in" id="companyHeader"></div>
+
+    <!-- Dashboard: Radar + Summary -->
+    <div class="dashboard" id="dashboard"></div>
+
+    <!-- 5 Dimension Cards -->
+    <div class="dimensions-grid" id="dimensionsGrid"></div>
+
+    <!-- Spark Bars -->
+    <div class="spark-section fade-in" id="sparkSection">
+      <div class="card-title">📈 關鍵財務指標一覽</div>
+      <div class="bar-chart" id="barChart"></div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div style="margin-bottom: 12px; color: #94a3b8; font-size: 0.85rem;">
+      📌 智慧識別：輸入 <code>00700</code> → 自動轉 <code>0700.HK</code>（港股）
+      | <code>600519</code> → <code>600519.SS</code>（A股）
+      | <code>2330</code> → <code>2330.TW</code>（台股）
+      | 英文直接識別為美股
+    </div>
+    <div style="margin-bottom: 12px; color: #64748b; font-size: 0.8rem;">
+      ⚠️ 本分析框架（五大數字力）主要適用於一般製造業與服務業。<br>
+      銀行、保險等金融業因產業特性不同（高負債比為正常營運模式），部分指標的解讀需另行調整。
+    </div>
+    <div style="margin-bottom: 12px; padding: 10px; background: rgba(234,179,8,0.08); border-radius: 8px; color: #fbbf24; font-size: 0.8rem;">
+      ⚠️ 免責聲明：本工具僅基於公開財務數據進行客觀分析，不構成任何投資建議、投資推薦或買賣指示。所有投資決策及風險由使用者自行承擔。
+    </div>
+    基於 MJ 老師「五大關鍵數字力」理論 | 財務數據來自 Yahoo Finance 公開資訊 | 僅供分析參考
+  </div>
+</div>
+
+<script>
+let radarChart = null;
+
+function quickSearch(ticker) {
+  document.getElementById('tickerInput').value = ticker;
+  analyze();
+}
+
+async function analyze() {
+  const ticker = document.getElementById('tickerInput').value.trim();
+  if (!ticker) return;
+
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('error').classList.remove('show');
+
+  try {
+    const resp = await fetch(`/api/analyze?ticker=${encodeURIComponent(ticker)}`);
+    const data = await resp.json();
+
+    document.getElementById('loading').classList.remove('show');
+
+    if (!data.success) {
+      document.getElementById('error').classList.add('show');
+      document.getElementById('error').textContent = '⚠️ 分析失敗：' + data.error;
+      return;
+    }
+
+    renderResults(data);
+    document.getElementById('results').classList.add('show');
+    window.scrollTo({ top: document.getElementById('results').offsetTop - 20, behavior: 'smooth' });
+  } catch (e) {
+    document.getElementById('loading').classList.remove('show');
+    document.getElementById('error').classList.add('show');
+    document.getElementById('error').textContent = '⚠️ 網路錯誤：' + e.message;
+  }
+}
+
+function formatCurrency(val, currency) {
+  if (!val || val === 0) return 'N/A';
+  if (val >= 1e12) return (val/1e12).toFixed(2) + ' 兆';
+  if (val >= 1e8) return (val/1e8).toFixed(2) + ' 億';
+  if (val >= 1e4) return (val/1e4).toFixed(2) + ' 萬';
+  return val.toLocaleString();
+}
+
+function renderResults(data) {
+  const t = data.ticker;
+  let flag = '🇺🇸', market = '美股';
+  if (t.includes('.TW') || t.includes('.TWO')) { flag = '🇹🇼'; market = '台股'; }
+  else if (t.includes('.HK')) { flag = '🇭🇰'; market = '港股'; }
+  else if (t.includes('.SS') || t.includes('.SZ')) { flag = '🇨🇳'; market = 'A股'; }
+
+  document.getElementById('tickerInput').value = t;
+
+  const g = data.overall_grade;
+  const header = document.getElementById('companyHeader');
+  header.innerHTML = `
+    <div class="company-info">
+      <h2>${flag} ${data.company_name}</h2>
+      <div class="meta">
+        ${market} · ${data.sector !== 'N/A' ? data.sector + ' · ' : ''}${data.industry !== 'N/A' ? data.industry + ' · ' : ''}
+        代碼: ${data.ticker} · 市值: ${formatCurrency(data.market_cap, data.currency)} ${data.currency}
+        ${data.current_price > 0 ? ' · 股價: ' + data.current_price.toLocaleString() + ' ' + data.currency : ''}
+      </div>
+    </div>
+    <div class="total-score">
+      <div class="big-grade" style="color:${g.color}">${g.level}</div>
+      <div class="score-number" style="color:${g.color}">總分 ${data.total_score}/100</div>
+      <div class="advice">${g.text}</div>
+    </div>
+  `;
+
+  const dash = document.getElementById('dashboard');
+  dash.innerHTML = `
+    <div class="card fade-in">
+      <div class="card-title"><span class="dot" style="background:#3b82f6"></span>五大數字力雷達圖</div>
+      <div style="max-width:420px; margin:0 auto;">
+        <canvas id="radarCanvas"></canvas>
+      </div>
+    </div>
+    <div class="card fade-in fade-in-d1" id="adviceCard">
+      <div class="card-title"><span class="dot" style="background:#10b981"></span>分析總評</div>
+      <div style="font-size:1.1rem; line-height:1.8; color:#cbd5e1; padding:12px 0;">
+        ${data.overall_advice}
+      </div>
+      <div style="margin-top:16px; padding-top:16px; border-top:1px solid #334155;">
+        <div style="color:#94a3b8; font-size:0.85rem; margin-bottom:8px;">📖 MJ 老師五大數字力優先順序：</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          ${data.dimensions.map((d,i) => `<span style="background:rgba(59,130,246,0.15); color:#93c5fd; padding:4px 10px; border-radius:12px; font-size:0.8rem;">${i+1}. ${d.label} (${d.score}分)</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+
+  setTimeout(() => {
+    const ctx = document.getElementById('radarCanvas');
+    if (!ctx) return;
+    if (radarChart) radarChart.destroy();
+    radarChart = new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels: data.dimensions.map(d => d.label),
+        datasets: [{
+          label: '五大數字力 (0-100)',
+          data: data.dimensions.map(d => d.score),
+          backgroundColor: 'rgba(59,130,246,0.2)',
+          borderColor: '#3b82f6',
+          borderWidth: 2,
+          pointBackgroundColor: data.dimensions.map(d => d.grade.color),
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 6,
+          pointHoverRadius: 9,
+        }, {
+          label: '參考基準線',
+          data: [70, 70, 70, 70, 70],
+          backgroundColor: 'transparent',
+          borderColor: 'rgba(16,185,129,0.35)',
+          borderWidth: 1.5,
+          borderDash: [6, 4],
+          pointRadius: 0,
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          r: {
+            beginAtZero: true, max: 100,
+            ticks: { stepSize: 20, backdropColor: 'transparent', color: '#64748b', font: { size: 10 } },
+            pointLabels: { color: '#cbd5e1', font: { size: 13, weight: 'bold' } },
+            grid: { color: 'rgba(51,65,85,0.5)' },
+            angleLines: { color: 'rgba(51,65,85,0.5)' },
+          }
+        },
+        plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } }
+      }
+    });
+  }, 200);
+
+  const dimGrid = document.getElementById('dimensionsGrid');
+  dimGrid.innerHTML = data.dimensions.map((d, i) => `
+    <div class="dim-card fade-in fade-in-d${i+1}">
+      <div class="dim-header">
+        <div>
+          <div class="dim-name" style="color:${d.grade.color}">${d.label}</div>
+          <div class="dim-cn">${d.zhongfanzhong}</div>
+        </div>
+        <div class="dim-grade" style="background:${d.grade.color}">
+          ${d.grade.level}
+        </div>
+      </div>
+      <div class="dim-body">
+        ${Object.entries(d.metrics).map(([k, v]) => `
+          <div class="metric-row">
+            <span class="metric-label">${k}</span>
+            <span>
+              <span class="metric-value" style="color:${v.pass ? '#10b981' : '#94a3b8'}">${v.value} ${v.unit}</span>
+              <span class="metric-threshold">(${v.threshold})</span>
+              <span class="metric-badge ${v.pass ? 'pass' : 'fail'}">${v.pass ? '✓' : '—'}</span>
+            </span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="dim-score-bar"><div class="fill" style="width:${d.score}%; background:${d.grade.color}"></div></div>
+      <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:0.8rem; color:#64748b;">
+        <span>0</span><span>${d.score} 分</span><span>100</span>
+      </div>
+      ${d.insight ? `<div class="dim-insight">${d.insight}</div>` : ''}
+    </div>
+  `).join('');
+
+  const spark = data.spark_data;
+  const barItems = [
+    { label: '毛利率', value: spark.gross_margin, color: '#10b981', max: 80, unit: '%' },
+    { label: '營業利益率', value: spark.operating_margin, color: '#3b82f6', max: 50, unit: '%' },
+    { label: '淨利率', value: spark.net_margin, color: '#6366f1', max: 40, unit: '%' },
+    { label: 'ROE', value: spark.roe, color: '#8b5cf6', max: 30, unit: '%' },
+    { label: '現金佔總資產比率', value: spark.cash_to_assets, color: '#06b6d4', max: 40, unit: '%' },
+    { label: '負債佔總資產比率', value: spark.debt_ratio, color: '#f59e0b', max: 80, unit: '%', reverse: true },
+    { label: '流動比率', value: spark.current_ratio, color: '#84cc16', max: 400, unit: '%' },
+    { label: '速動比率', value: spark.quick_ratio, color: '#a3e635', max: 300, unit: '%' },
+    { label: '應收帳款週轉率', value: spark.ar_turnover, color: '#f97316', max: 20, unit: '次' },
+    { label: '存貨週轉率', value: spark.inventory_turnover, color: '#ec4899', max: 10, unit: '次' },
+    { label: '總資產週轉率', value: spark.total_asset_turnover, color: '#e879f9', max: 2, unit: '次' },
+    { label: '平均收現日數', value: spark.avg_collection_days, color: '#ef4444', max: 180, unit: '天', reverse: true },
+  ];
+
+  const barChart = document.getElementById('barChart');
+  barChart.innerHTML = barItems.map(b => {
+    const pct = Math.min(100, Math.max(0, (b.value / b.max) * 100));
+    const isGood = b.reverse ? b.value < 60 : pct > 50;
+    return `
+      <div class="bar-row">
+        <span class="bar-label">${b.label}</span>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${pct}%; background:${isGood ? b.color : '#94a3b8'}">
+            <span class="bar-value">${b.value}${b.unit}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+document.getElementById('tickerInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') analyze();
+});
+</script>
+</body>
+</html>
