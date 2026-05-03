@@ -52,11 +52,36 @@ python app.py
 | D. 財務結構 | 那一根棒子 | 負債比、股東權益比 |
 | E. 償債能力 | 您欠我的，能還嗎？ | 流動比率、速動比率、利息保障倍數 |
 
+## 部署到 Render（免費上線）
+
+本項目已配置好 Render 部署文件（`render.yaml` + `Procfile`），可直接一鍵部署。
+
+### 步驟
+
+1. **登入 Render**：打開 [https://dashboard.render.com](https://dashboard.render.com)，使用 GitHub 帳號登入
+2. **新建 Blueprint**：點擊 **New** → 選擇 **Blueprint**
+3. **連接倉庫**：選擇 `five-key-financial-analysis` 倉庫，點擊 **Connect**
+4. **確認配置**：Render 會自動識別以下配置，無需手動修改
+   - **Runtime**：Python
+   - **Build Command**：`pip install -r requirements.txt`
+   - **Start Command**：`gunicorn app:app`
+   - **Instance Type**：選 **Free**（免費套餐）
+5. **開始部署**：點擊 **Apply**，等待約 2-3 分鐘
+6. **訪問網站**：部署完成後，Render 會分配一個公網地址，格式如：
+   `https://five-key-financial-analysis-xxxx.onrender.com`
+
+### 注意事項
+
+- 免費套餐會在 **15 分鐘無流量後自動休眠**，再次訪問時需等待約 30 秒冷啟動
+- 如需自定義域名，可在 Render 服務的 **Settings** 中配置
+- 如需更新代碼，推送到 GitHub `main` 分支後，Render 會自動重新部署
+
 ## 技術架構
 
-- **後端**：Flask + yfinance（財務數據來源：Yahoo Finance）
+- **後端**：Flask + Gunicorn + yfinance（財務數據來源：Yahoo Finance）
 - **前端**：原生 HTML/CSS/JS + Chart.js（雷達圖）
 - **數據來源**：Yahoo Finance 公開資訊
+- **部署**：Render（免費）/ Gunicorn 生產伺服器
 
 ## 免責聲明
 
